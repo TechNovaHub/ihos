@@ -5,7 +5,7 @@ The HAPServerProtocol is a protocol implementation that manages the "TLS" of the
 import asyncio
 import logging
 import time
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any
 
 from cryptography.exceptions import InvalidTag
 import h11
@@ -43,25 +43,25 @@ class HAPServerProtocol(asyncio.Protocol):
     def __init__(
         self,
         loop: asyncio.AbstractEventLoop,
-        connections: Dict[str, "HAPServerProtocol"],
+        connections: dict[str, "HAPServerProtocol"],
         accessory_driver: "AccessoryDriver",
     ) -> None:
         self.loop = loop
         self.conn = h11.Connection(h11.SERVER)
         self.connections = connections
         self.accessory_driver = accessory_driver
-        self.handler: Optional[HAPServerHandler] = None
-        self.peername: Optional[str] = None
-        self.transport: Optional[asyncio.Transport] = None
+        self.handler: HAPServerHandler | None = None
+        self.peername: str | None = None
+        self.transport: asyncio.Transport | None = None
 
-        self.request: Optional[h11.Request] = None
-        self.request_body: List[bytes] = []
-        self.response: Optional[HAPResponse] = None
+        self.request: h11.Request | None = None
+        self.request_body: list[bytes] = []
+        self.response: HAPResponse | None = None
 
-        self.last_activity: Optional[float] = None
-        self.hap_crypto: Optional[HAPCrypto] = None
-        self._event_timer: Optional[asyncio.TimerHandle] = None
-        self._event_queue: Dict[Tuple[int, int], Dict[str, Any]] = {}
+        self.last_activity: float | None = None
+        self.hap_crypto: HAPCrypto | None = None
+        self._event_timer: asyncio.TimerHandle | None = None
+        self._event_queue: dict[tuple[int, int], dict[str, Any]] = {}
 
     def connection_lost(self, exc: Exception) -> None:
         """Handle connection lost."""
@@ -230,7 +230,7 @@ class HAPServerProtocol(asyncio.Protocol):
             self.write(create_hap_event(subscribed_events))
         self._event_queue.clear()
 
-    def _event_queue_with_active_subscriptions(self) -> List[Dict[str, Any]]:
+    def _event_queue_with_active_subscriptions(self) -> list[dict[str, Any]]:
         """Remove any topics that have been unsubscribed after the event was generated."""
         topics = self.accessory_driver.topics
         return [

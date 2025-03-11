@@ -36,7 +36,7 @@ class Server:
         self.gb = long_to_bytes(self.g)
         self.N_len = ctx["N_len"]
         self.s = s or os.urandom(ctx["salt_len"])
-        self.I = u  # noqa: E741
+        self.I = u
         self.p = p
         self.v = v or self._get_verifier()
         self.k = self._get_k()
@@ -86,7 +86,7 @@ class Server:
     def _get_M(self):
         hN = self._digest(self.Nb)
         hG = self._digest(self.gb)
-        hGroup = bytes(hN[i] ^ hG[i] for i in range(0, len(hN)))
+        hGroup = bytes(hN[i] ^ hG[i] for i in range(len(hN)))
         hU = self._digest(self.I)
         return self._digest(hGroup + hU + self.s + self.Ab + self.Bb + self.Kb)
 

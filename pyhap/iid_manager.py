@@ -1,6 +1,6 @@
 """Module for the IIDManager class."""
 import logging
-from typing import TYPE_CHECKING, Dict, Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 if TYPE_CHECKING:
     from .characteristic import Characteristic
@@ -17,8 +17,8 @@ class IIDManager:
     def __init__(self) -> None:
         """Initialize an empty instance."""
         self.counter = 0
-        self.iids: Dict["ServiceOrCharType", int] = {}
-        self.objs: Dict[int, "ServiceOrCharType"] = {}
+        self.iids: dict[ServiceOrCharType, int] = {}
+        self.objs: dict[int, ServiceOrCharType] = {}
 
     def assign(self, obj: "ServiceOrCharType") -> None:
         """Assign an IID to given object. Print warning if already assigned.
@@ -55,7 +55,7 @@ class IIDManager:
         """Get the IID assigned to the given object."""
         return self.iids.get(obj)
 
-    def remove_obj(self, obj: "ServiceOrCharType") -> Optional[int]:
+    def remove_obj(self, obj: "ServiceOrCharType") -> int | None:
         """Remove an object from the IID list."""
         iid = self.iids.pop(obj, None)
         if iid is None:

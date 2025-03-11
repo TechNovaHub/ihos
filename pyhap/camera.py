@@ -862,7 +862,7 @@ class Camera(Accessory):
                 async with async_timeout.timeout(2.0):
                     _, stderr = await ffmpeg_process.communicate()
                 logger.debug('Stream command stderr: %s', stderr)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.error(
                     'Timeout while waiting for the stream process '
                     'to terminate. Trying with kill.'

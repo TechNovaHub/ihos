@@ -1,6 +1,6 @@
 """Encodes and decodes Tag-Length-Value (tlv8) data."""
 import struct
-from typing import Any, Dict, Union, List
+from typing import Any
 
 from pyhap import util
 
@@ -31,7 +31,7 @@ def encode(*args, to_base64=False):
             encoded = tag + struct.pack("B", total_length) + data
         else:
             encoded = b""
-            for y in range(0, total_length // 255):
+            for y in range(total_length // 255):
                 encoded = encoded + tag + b"\xFF" + data[y * 255 : (y + 1) * 255]
             remaining = total_length % 255
             encoded = encoded + tag + struct.pack("B", remaining) + data[-remaining:]
@@ -43,7 +43,7 @@ def encode(*args, to_base64=False):
     return util.to_base64_str(result) if to_base64 else result
 
 
-def decode(data: bytes, from_base64: bool = False) -> Dict[bytes, Any]:
+def decode(data: bytes, from_base64: bool = False) -> dict[bytes, Any]:
     """Decode the given TLV-encoded ``data`` to a ``dict``.
 
     :param from_base64: Whether the given ``data`` should be base64 decoded first.
@@ -102,17 +102,17 @@ def read_uint32_le(buffer, offset):
 
     # Convert the bytes to an unsigned, little-endian 32-bit integer
     uint32_value = (bytes_slice[0] << 0) | (bytes_slice[1] << 8) | (bytes_slice[2] << 16) | (bytes_slice[3] << 24)
-    
+
     return uint32_value
 
 
 def read_float_le(buffer, offset):
     # Extract the 4 bytes from the buffer starting at the specified offset
     bytes_slice = buffer[offset:offset + 4]
-    
+
     # Convert the bytes to a little-endian float using struct.unpack
     float_value = struct.unpack('<f', bytes_slice)[0]
-    
+
     return float_value
 
 # def read_variable_uint_le(buffer: bytes, offset: int = 0) -> int:
@@ -144,17 +144,16 @@ def read_variable_uint_le(buffer: bytes, offset: int = 0) -> int:
 def write_variable_uint_le(number: int) -> bytes:
     if number <= 255:
         return struct.pack("<B", number)
-    elif number <= 65535:
+    if number <= 65535:
         return struct.pack("<H", number)
-    elif number <= 4294967295:
+    if number <= 4294967295:
         return struct.pack("<I", number)
-    else:
-        return struct.pack("<Q", number)
+    return struct.pack("<Q", number)
 
 # Constants
 EMPTY_TLV_TYPE = 0x00
 
-def decode_with_lists(buffer: bytes) -> Dict[int, Union[bytes, List[bytes]]]:
+def decode_with_lists(buffer: bytes) -> dict[int, bytes | list[bytes]]:
     result = {}
     left_bytes = len(buffer)
     read_index = 0

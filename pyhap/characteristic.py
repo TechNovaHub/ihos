@@ -1,11 +1,11 @@
-"""
-All things for a HAP characteristic.
+"""All things for a HAP characteristic.
 
 A Characteristic is the smallest unit of the smart home, e.g.
 a temperature measuring or a device status.
 """
+from collections.abc import Callable
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from .const import (
@@ -105,7 +105,7 @@ class CharacteristicError(Exception):
     """Generic exception class for characteristic errors."""
 
 
-def _validate_properties(properties: Dict[str, Any]) -> None:
+def _validate_properties(properties: dict[str, Any]) -> None:
     """Throw an exception on invalid properties."""
     if (
         HAP_REPR_MAX_LEN in properties
@@ -124,30 +124,30 @@ class Characteristic:
     """
 
     __slots__ = (
-        "broker",
-        "_display_name",
-        "_properties",
-        "type_id",
-        "_value",
-        "getter_callback",
-        "setter_callback",
-        "service",
-        "_uuid_str",
-        "_loader_display_name",
-        "allow_invalid_client_values",
-        "unique_id",
-        "_to_hap_cache_with_value",
-        "_to_hap_cache",
         "_always_null",
+        "_display_name",
+        "_loader_display_name",
+        "_properties",
+        "_to_hap_cache",
+        "_to_hap_cache_with_value",
+        "_uuid_str",
+        "_value",
+        "allow_invalid_client_values",
+        "broker",
+        "getter_callback",
+        "service",
+        "setter_callback",
+        "type_id",
+        "unique_id",
     )
 
     def __init__(
         self,
-        display_name: Optional[str],
+        display_name: str | None,
         type_id: UUID,
-        properties: Dict[str, Any],
+        properties: dict[str, Any],
         allow_invalid_client_values: bool = False,
-        unique_id: Optional[str] = None,
+        unique_id: str | None = None,
     ) -> None:
         """Initialise with the given properties.
 
@@ -163,7 +163,7 @@ class Characteristic:
         :type properties: dict
         """
         _validate_properties(properties)
-        self.broker: Optional["Accessory"] = None
+        self.broker: Accessory | None = None
         #
         # As of iOS 15.1, Siri requests TargetHeatingCoolingState
         # as Auto reguardless if its a valid value or not.
@@ -175,20 +175,20 @@ class Characteristic:
         self._always_null = type_id in ALWAYS_NULL
         self.allow_invalid_client_values = allow_invalid_client_values
         self._display_name = display_name
-        self._properties: Dict[str, Any] = properties
+        self._properties: dict[str, Any] = properties
         self.type_id = type_id
         self._value = self._get_default_value()
-        self.getter_callback: Optional[Callable[[], Any]] = None
-        self.setter_callback: Optional[Callable[[Any], None]] = None
-        self.service: Optional["Service"] = None
+        self.getter_callback: Callable[[], Any] | None = None
+        self.setter_callback: Callable[[Any], None] | None = None
+        self.service: Service | None = None
         self.unique_id = unique_id
         self._uuid_str = uuid_to_hap_type(type_id)
-        self._loader_display_name: Optional[str] = None
-        self._to_hap_cache_with_value: Optional[Dict[str, Any]] = None
-        self._to_hap_cache: Optional[Dict[str, Any]] = None
+        self._loader_display_name: str | None = None
+        self._to_hap_cache_with_value: dict[str, Any] | None = None
+        self._to_hap_cache: dict[str, Any] | None = None
 
     @property
-    def display_name(self) -> Optional[str]:
+    def display_name(self) -> str | None:
         """Return the display name of the characteristic."""
         return self._display_name
 
@@ -210,7 +210,7 @@ class Characteristic:
         self._clear_cache()
 
     @property
-    def properties(self) -> Dict[str, Any]:
+    def properties(self) -> dict[str, Any]:
         """Return the properties of the characteristic.
 
         Properties should not be modified directly. Use override_properties instead.
@@ -289,8 +289,8 @@ class Characteristic:
 
     def override_properties(
         self,
-        properties: Optional[Dict[str, Any]] = None,
-        valid_values: Optional[Dict[str, Any]] = None,
+        properties: dict[str, Any] | None = None,
+        valid_values: dict[str, Any] | None = None,
     ) -> None:
         """Override characteristic property values and valid values.
 
@@ -359,7 +359,7 @@ class Characteristic:
             self.value = None
 
     def client_update_value(
-        self, value: Any, sender_client_addr: Optional[Tuple[str, int]] = None
+        self, value: Any, sender_client_addr: tuple[str, int] | None = None
     ) -> None:
         """Called from broker for value change in Home app.
 
@@ -390,7 +390,7 @@ class Characteristic:
             self.value = None
         return response
 
-    def notify(self, sender_client_addr: Optional[Tuple[str, int]] = None) -> None:
+    def notify(self, sender_client_addr: tuple[str, int] | None = None) -> None:
         """Notify clients about a value change. Sends the value.
 
         .. seealso:: accessory.publish
@@ -400,7 +400,7 @@ class Characteristic:
         self.broker.publish(self.value, self, sender_client_addr, immediate)
 
     # pylint: disable=invalid-name
-    def to_HAP(self, include_value: bool = True) -> Dict[str, Any]:
+    def to_HAP(self, include_value: bool = True) -> dict[str, Any]:
         """Create a HAP representation of this Characteristic.
 
         Used for json serialization.
@@ -457,7 +457,7 @@ class Characteristic:
 
     @classmethod
     def from_dict(
-        cls, name: str, json_dict: Dict[str, Any], from_loader: bool = False
+        cls, name: str, json_dict: dict[str, Any], from_loader: bool = False
     ) -> "Characteristic":
         """Initialize a characteristic object from a dict.
 

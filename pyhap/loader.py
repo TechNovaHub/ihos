@@ -1,5 +1,4 @@
-"""
-Various classes that construct representations of
+"""Various classes that construct representations of
 HAP services and characteristics from a json
 representation.
 
@@ -34,7 +33,7 @@ class Loader:
     @staticmethod
     def _read_file(path):
         """Read file and return a dict."""
-        with open(path, "r", encoding="utf8") as file:
+        with open(path, encoding="utf8") as file:
             return orjson.loads(file.read())  # pylint: disable=no-member
 
     def get_char(self, name):

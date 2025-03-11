@@ -1,6 +1,6 @@
 """This module implements the HAP events."""
 
-from typing import Any, Dict
+from typing import Any
 
 from .const import HAP_REPR_CHARS
 from .util import to_hap_json
@@ -12,7 +12,7 @@ EVENT_MSG_STUB = (
 )
 
 
-def create_hap_event(data: Dict[str, Any]) -> bytes:
+def create_hap_event(data: dict[str, Any]) -> bytes:
     """Creates a HAP HTTP EVENT response for the given data.
 
     @param data: Payload of the request.

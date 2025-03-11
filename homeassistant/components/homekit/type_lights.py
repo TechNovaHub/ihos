@@ -2,22 +2,17 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-import logging
-from typing import Any
-import tlv8
-import base64
-import time
-from pyhap import tlv
-from pyhap.util import base64_to_bytes, to_base64_str
-from pyhap.const import CATEGORY_LIGHTBULB, HAP_REPR_IID
-import enum
-import uuid
-import datetime
 import asyncio
+import base64
+import datetime
+from datetime import datetime
+import enum
+import logging
+import time
+from typing import Any
+import uuid
 
-from homeassistant.helpers.event import async_track_state_change_event
-from homeassistant.helpers.storage import Store
+import tlv8
 
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
@@ -43,14 +38,18 @@ from homeassistant.const import (
     SERVICE_TURN_ON,
     STATE_ON,
 )
-from homeassistant.core import CALLBACK_TYPE, State, callback, Event
-from homeassistant.helpers.event import async_call_later, _remove_listener
+from homeassistant.core import CALLBACK_TYPE, Event, State, callback
+from homeassistant.helpers.event import async_call_later, async_track_state_change_event
+from homeassistant.helpers.storage import Store
 from homeassistant.util.color import (
     color_temperature_kelvin_to_mired,
     color_temperature_mired_to_kelvin,
     color_temperature_to_hs,
     color_temperature_to_rgbww,
 )
+from pyhap import tlv
+from pyhap.const import CATEGORY_LIGHTBULB, HAP_REPR_IID
+from pyhap.util import base64_to_bytes, to_base64_str
 
 from .accessories import TYPES, HomeAccessory
 from .const import (
@@ -62,19 +61,26 @@ from .const import (
     PROP_MAX_VALUE,
     PROP_MIN_VALUE,
     SERV_LIGHTBULB,
-
 )
 
-SUPPORTED_TRANSITION_CONFIGURATION = b"\x01"  # Tag for supported transition configuration
+SUPPORTED_TRANSITION_CONFIGURATION = (
+    b"\x01"  # Tag for supported transition configuration
+)
 CHARACTERISTIC_IID = b"\x01"  # Tag for characteristic instance ID
 TRANSITION_TYPE = b"\x02"  # Tag for transition type
 BRIGHTNESS = b"\x01"  # Value for brightness transition type
 COLOR_TEMPERATURE = b"\x02"  # Value for color temperature transition type
 
-EPOCH_MILLIS_2001_01_01 = int(datetime.datetime(2001, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc).timestamp() * 1000)
+EPOCH_MILLIS_2001_01_01 = int(
+    datetime.datetime(2001, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc).timestamp()
+    * 1000
+)
+
 
 def bytes_to_base64_string(value: bytes) -> str:
-   return base64.b64encode(value).decode('ASCII')
+    return base64.b64encode(value).decode("ASCII")
+
+
 ####
 
 _LOGGER = logging.getLogger(__name__)
@@ -87,8 +93,10 @@ DEFAULT_MAX_COLOR_TEMP = 7142  # 153 mireds
 
 COLOR_MODES_WITH_WHITES = {ColorMode.RGBW, ColorMode.RGBWW, ColorMode.WHITE}
 
+
 class ValueTransitionConfigurationResponseTypes(enum.IntEnum):
     VALUE_CONFIGURATION_STATUS = 1
+
 
 class TransitionControlTypes(enum.IntEnum):
     READ_CURRENT_VALUE_TRANSITION_CONFIGURATION = 1
@@ -99,33 +107,39 @@ class AdaptiveLightingControllerMode(enum.IntEnum):
     AUTOMATIC = 1
     MANUAL = 2
 
+
 class ValueTransitionParametersTypes(enum.IntEnum):
     START_TIME = 2
     TRANSITION_ID = 1
     UNKNOWN_3 = 3
 
+
 class ValueTransitionConfigurationStatusTypes(enum.IntEnum):
     CHARACTERISTIC_IID = 1
     TRANSITION_PARAMETERS = 2
-    TIME_SINCE_START = 3 
+    TIME_SINCE_START = 3
 
-class BrightnessAdjustmentMultiplierRange():
+
+class BrightnessAdjustmentMultiplierRange:
     minBrightnessValue = None
     maxBrightnessValue = None
 
+
 AdaptiveLightingTransitionCurveEntry = {
-    "temperature" : None,
-    "brightness_adjustment_factor" : None,
-    "transition_time" : None,
-    "duration" : None
+    "temperature": None,
+    "brightness_adjustment_factor": None,
+    "transition_time": None,
+    "duration": None,
 }
+
 
 class TransitionCurveConfigurationTypes(enum.IntEnum):
     TRANSITION_ENTRY = 1
     ADJUSTMENT_CHARACTERISTIC_IID = 2
     ADJUSTMENT_MULTIPLIER_RANGE = 3
 
-class ActiveAdaptiveLightingTransition():
+
+class ActiveAdaptiveLightingTransition:
     iid = 0
     transition_start_millis = 0
     time_millis_offset = 0
@@ -137,12 +151,15 @@ class ActiveAdaptiveLightingTransition():
     update_interval = None
     notify_interval_threshold = None
 
+
 def epochMillisFromMillisSince2001_01_01(millis):
     return EPOCH_MILLIS_2001_01_01 + millis
+
 
 def epochMillisFromMillisSince2001_01_01Buffer(millis):
     millisince2001 = tlv.read_uint64_le(millis)
     return epochMillisFromMillisSince2001_01_01(millisince2001)
+
 
 @TYPES.register("Light")
 class Light(HomeAccessory):
@@ -150,6 +167,7 @@ class Light(HomeAccessory):
 
     Currently supports: state, brightness, color temperature, rgb_color.
     """
+
     STORAGE_KEY = "adaptive_lighting_state"
 
     def __init__(self, *args: Any) -> None:
@@ -160,7 +178,7 @@ class Light(HomeAccessory):
         self.active_transition = None  # Default transition state
         self.char_tc_value = None  # Default TransitionControl value
         self.initial_transition_control_value = None  # Save the initial set_tc value
-        
+
         # Load the stored state on initialization
         self.hass.loop.create_task(self._load_state())
         self.last_transition_point_info = None
@@ -173,9 +191,11 @@ class Light(HomeAccessory):
         )
         self.chars = [
             "Brightness",
-            "ColorTemperature","ActiveTransitionCount",
+            "ColorTemperature",
+            "ActiveTransitionCount",
             "TransitionControl",
-            "SupportedTransitionConfiguration"]
+            "SupportedTransitionConfiguration",
+        ]
         self._event_timer: CALLBACK_TYPE | None = None
         self._pending_events: dict[str, Any] = {}
 
@@ -196,10 +216,12 @@ class Light(HomeAccessory):
         self.active_transition = None
         self.mode = AdaptiveLightingControllerMode
         self.update_timeout = None
-        self.handle_adjustment_factor_changed = self.handle_adjustment_factor_changed_listner
+        self.handle_adjustment_factor_changed = (
+            self.handle_adjustment_factor_changed_listner
+        )
         self.adaptive_lighting_active = False
         self.did_run_first_initialization_step = False
-        
+
         if self.brightness_supported:
             self.chars.append(CHAR_BRIGHTNESS)
 
@@ -215,7 +237,6 @@ class Light(HomeAccessory):
         self.char_on = serv_light.configure_char(CHAR_ON, value=0)
 
         if self.brightness_supported:
-
             self.char_brightness = serv_light.configure_char(CHAR_BRIGHTNESS, value=100)
 
         if CHAR_COLOR_TEMPERATURE in self.chars:
@@ -241,34 +262,46 @@ class Light(HomeAccessory):
             self.char_saturation = serv_light.configure_char(CHAR_SATURATION, value=75)
 
         # Simulate the instance ID retrieval
-        brightness_iid = self.char_brightness.to_HAP()[HAP_REPR_IID].to_bytes(2, 'little')
-        temperature_iid = self.char_color_temp.to_HAP()[HAP_REPR_IID].to_bytes(2, 'little')
+        brightness_iid = self.char_brightness.to_HAP()[HAP_REPR_IID].to_bytes(
+            2, "little"
+        )
+        temperature_iid = self.char_color_temp.to_HAP()[HAP_REPR_IID].to_bytes(
+            2, "little"
+        )
 
         # Encode transitions in TLV format using the encode function from tlv.py
         encoded_data = tlv.encode(
             SUPPORTED_TRANSITION_CONFIGURATION,
             tlv.encode(
-                CHARACTERISTIC_IID, brightness_iid,
-                TRANSITION_TYPE, BRIGHTNESS,
-                CHARACTERISTIC_IID, temperature_iid,
-                TRANSITION_TYPE, COLOR_TEMPERATURE
-            )
+                CHARACTERISTIC_IID,
+                brightness_iid,
+                TRANSITION_TYPE,
+                BRIGHTNESS,
+                CHARACTERISTIC_IID,
+                temperature_iid,
+                TRANSITION_TYPE,
+                COLOR_TEMPERATURE,
+            ),
         )
 
         # Convert to base64 for output
-        b64str = base64.b64encode(encoded_data).decode('utf-8')
+        b64str = base64.b64encode(encoded_data).decode("utf-8")
         self.char_br = serv_light.configure_char(
-            'Brightness', setter_callback=self.set_brightness)
+            "Brightness", setter_callback=self.set_brightness
+        )
         self.char_ct = serv_light.configure_char(
-            'ColorTemperature', setter_callback=self.set_ct, value=140)
+            "ColorTemperature", setter_callback=self.set_ct, value=140
+        )
 
         self.char_atc = serv_light.configure_char(
-            'ActiveTransitionCount', setter_callback=self.set_atc)
+            "ActiveTransitionCount", setter_callback=self.set_atc
+        )
         self.char_tc = serv_light.configure_char(
-            'TransitionControl', setter_callback=self.set_tc)
+            "TransitionControl", setter_callback=self.set_tc
+        )
         self.char_stc = serv_light.configure_char(
-            'SupportedTransitionConfiguration',
-            value=b64str)
+            "SupportedTransitionConfiguration", value=b64str
+        )
         self.async_update_state(state)
         serv_light.setter_callback = self._set_chars
 
@@ -290,20 +323,22 @@ class Light(HomeAccessory):
 
     async def _save_state(self):
         """Save the adaptive lighting state, active transition, and characteristic value."""
-        await self.storage.async_save({
-            "adaptive_lighting_active": self.adaptive_lighting_active,
-            "active_transition": self.active_transition,
-            "transition_control_value": self.transition_control_value
-        })
+        await self.storage.async_save(
+            {
+                "adaptive_lighting_active": self.adaptive_lighting_active,
+                "active_transition": self.active_transition,
+                "transition_control_value": self.transition_control_value,
+            }
+        )
 
     def set_ct(self, value):
         """Set color temperature of the light."""
-        logging.info("%s Bulb color temp: %s",self.entity_id, value)
+        logging.info("%s Bulb color temp: %s", self.entity_id, value)
         self.char_ct.set_value(value)
         self.char_ct.notify()
         params = {
             ATTR_ENTITY_ID: self.entity_id,
-            ATTR_COLOR_TEMP_KELVIN: color_temperature_mired_to_kelvin(value)
+            ATTR_COLOR_TEMP_KELVIN: color_temperature_mired_to_kelvin(value),
         }
         self.async_call_service(DOMAIN, SERVICE_TURN_ON, params)
 
@@ -320,26 +355,65 @@ class Light(HomeAccessory):
         self.async_call_service(DOMAIN, SERVICE_TURN_ON, params)
 
     def set_atc(self, now):
-        now =  int(round(datetime.datetime.now().timestamp() * 1000))
+        now = int(round(datetime.datetime.now().timestamp() * 1000))
         if not self.active_transition:
             return b""
         active = self.active_transition
-        time_since_start = now if now is None else (now - active["time_millis_offset"] - active["transition_start_millis"])
+        time_since_start = (
+            now
+            if now is None
+            else (
+                now - active["time_millis_offset"] - active["transition_start_millis"]
+            )
+        )
 
         time_since_start_buffer = tlv.write_variable_uint_le(time_since_start)
-        parameters = tlv8.encode([
-            tlv8.Entry(ValueTransitionParametersTypes.TRANSITION_ID, bytes.fromhex(active["transition_id"].replace('-', ''))),
-            tlv8.Entry(ValueTransitionParametersTypes.START_TIME, base64_to_bytes(active["transition_start_buffer"]))]
+        parameters = tlv8.encode(
+            [
+                tlv8.Entry(
+                    ValueTransitionParametersTypes.TRANSITION_ID,
+                    bytes.fromhex(active["transition_id"].replace("-", "")),
+                ),
+                tlv8.Entry(
+                    ValueTransitionParametersTypes.START_TIME,
+                    base64_to_bytes(active["transition_start_buffer"]),
+                ),
+            ]
         )
         if active["id3"]:
-            parameters += tlv8.encode([tlv8.Entry(ValueTransitionParametersTypes.UNKNOWN_3, base64_to_bytes(active["id3"]))])
-        status = tlv8.encode([
-            tlv8.Entry(ValueTransitionConfigurationStatusTypes.CHARACTERISTIC_IID, tlv.write_variable_uint_le(active["iid"])),
-            tlv8.Entry(ValueTransitionConfigurationStatusTypes.TRANSITION_PARAMETERS, parameters),
-            tlv8.Entry(ValueTransitionConfigurationStatusTypes.TIME_SINCE_START, time_since_start_buffer)]
+            parameters += tlv8.encode(
+                [
+                    tlv8.Entry(
+                        ValueTransitionParametersTypes.UNKNOWN_3,
+                        base64_to_bytes(active["id3"]),
+                    )
+                ]
+            )
+        status = tlv8.encode(
+            [
+                tlv8.Entry(
+                    ValueTransitionConfigurationStatusTypes.CHARACTERISTIC_IID,
+                    tlv.write_variable_uint_le(active["iid"]),
+                ),
+                tlv8.Entry(
+                    ValueTransitionConfigurationStatusTypes.TRANSITION_PARAMETERS,
+                    parameters,
+                ),
+                tlv8.Entry(
+                    ValueTransitionConfigurationStatusTypes.TIME_SINCE_START,
+                    time_since_start_buffer,
+                ),
+            ]
         )
-        
-        return tlv8.encode([tlv8.Entry(ValueTransitionConfigurationResponseTypes.VALUE_CONFIGURATION_STATUS, status)])
+
+        return tlv8.encode(
+            [
+                tlv8.Entry(
+                    ValueTransitionConfigurationResponseTypes.VALUE_CONFIGURATION_STATUS,
+                    status,
+                )
+            ]
+        )
 
     def set_tc(self, value):
         """Set TransitionControl characteristic."""
@@ -353,20 +427,26 @@ class Light(HomeAccessory):
         self.transition_control_value = value
         self.hass.loop.create_task(self._save_state())
         self.transition_control_value = value
-        self.hass.loop.create_task(self._save_state())  # Save state whenever this is set
+        self.hass.loop.create_task(
+            self._save_state()
+        )  # Save state whenever this is set
         # Decode the value, process it, and store it
         tlv_data = tlv.decode(base64_to_bytes(value))
         response_buffers = []
 
         read_transition = None
         if read_transition:
-            read_transition_response = self.handle_transition_control_read_transition(read_transition)
+            read_transition_response = self.handle_transition_control_read_transition(
+                read_transition
+            )
             if read_transition_response:
                 response_buffers.append(read_transition_response)
 
-        update_transition = tlv_data.get(b'\x02')
+        update_transition = tlv_data.get(b"\x02")
         if update_transition:
-            update_transition_response = self.handle_transition_control_update_transition(update_transition)
+            update_transition_response = (
+                self.handle_transition_control_update_transition(update_transition)
+            )
             if update_transition_response:
                 response_buffers.append(update_transition_response)
 
@@ -374,34 +454,53 @@ class Light(HomeAccessory):
 
     def handle_transition_control_update_transition(self, buffer):
         update_transition = tlv.decode(buffer)
-        transition_configuration = tlv.decode(update_transition[b'\x01'])
-        iid = tlv.read_variable_uint_le(transition_configuration[b'\x01'])
+        transition_configuration = tlv.decode(update_transition[b"\x01"])
+        iid = tlv.read_variable_uint_le(transition_configuration[b"\x01"])
 
-        param3 = transition_configuration.get(b'\x03', [None])[0]  # when present it is always 1
+        param3 = transition_configuration.get(b"\x03", [None])[
+            0
+        ]  # when present it is always 1
 
         if not param3:  # if HomeKit just sends the iid, we consider that as "disable adaptive lighting" (assumption)
             self.handle_adaptive_lighting_disabled()
-            return tlv8.encode([tlv8.Entry(TransitionControlTypes.UPDATE_VALUE_TRANSITION_CONFIGURATION, b"")])        
-        parameters_tlv = tlv.decode(transition_configuration[b'\x02'])
-        curve_configuration = tlv.decode_with_lists(transition_configuration[b'\x05'])
-        update_interval = tlv.read_uint16(transition_configuration[b'\x06']) if transition_configuration[b'\x06'] else None
-        notify_interval_threshold = tlv.read_uint32(transition_configuration[b'\x08'])
+            return tlv8.encode(
+                [
+                    tlv8.Entry(
+                        TransitionControlTypes.UPDATE_VALUE_TRANSITION_CONFIGURATION,
+                        b"",
+                    )
+                ]
+            )
+        parameters_tlv = tlv.decode(transition_configuration[b"\x02"])
+        curve_configuration = tlv.decode_with_lists(transition_configuration[b"\x05"])
+        update_interval = (
+            tlv.read_uint16(transition_configuration[b"\x06"])
+            if transition_configuration[b"\x06"]
+            else None
+        )
+        notify_interval_threshold = tlv.read_uint32(transition_configuration[b"\x08"])
 
-        transition_id = parameters_tlv[b'\x01']
-        start_time = parameters_tlv[b'\x02']
-        id3 = parameters_tlv[b'\x03'] if parameters_tlv[b'\x03'] else None  # this may be undefined
+        transition_id = parameters_tlv[b"\x01"]
+        start_time = parameters_tlv[b"\x02"]
+        id3 = (
+            parameters_tlv[b"\x03"] if parameters_tlv[b"\x03"] else None
+        )  # this may be undefined
         start_time_millis = epochMillisFromMillisSince2001_01_01Buffer(start_time)
-        time_millis_offset = int(round(datetime.datetime.now().timestamp() * 1000)) - start_time_millis
+        time_millis_offset = (
+            int(round(datetime.datetime.now().timestamp() * 1000)) - start_time_millis
+        )
 
         transition_curve = []
         previous = None
-        transitions = curve_configuration[TransitionCurveConfigurationTypes.TRANSITION_ENTRY]
+        transitions = curve_configuration[
+            TransitionCurveConfigurationTypes.TRANSITION_ENTRY
+        ]
 
         for idx, entry in enumerate(transitions):
             tlv_entry = tlv.decode(entry)
-            adjustment_factor = tlv.read_float_le(tlv_entry[b'\x01'], 0)
-            value = tlv.read_float_le(tlv_entry[b'\x02'], 0)
-            transition_offset = tlv.read_variable_uint_le(tlv_entry[b'\x03'])
+            adjustment_factor = tlv.read_float_le(tlv_entry[b"\x01"], 0)
+            value = tlv.read_float_le(tlv_entry[b"\x02"], 0)
+            transition_offset = tlv.read_variable_uint_le(tlv_entry[b"\x03"])
             duration = None
 
             # Fix transition_time for intermediate curves
@@ -419,17 +518,28 @@ class Light(HomeAccessory):
             }
             transition_curve.append(previous)
 
-        adjustment_iid = tlv.read_variable_uint_le(curve_configuration[TransitionCurveConfigurationTypes.ADJUSTMENT_CHARACTERISTIC_IID])
-        adjustment_multiplier_range = tlv.decode(curve_configuration[TransitionCurveConfigurationTypes.ADJUSTMENT_MULTIPLIER_RANGE])
-        min_adjustment_multiplier = tlv.read_uint32_le(adjustment_multiplier_range[b'\x01'], 0)
-        max_adjustment_multiplier = tlv.read_uint32_le(adjustment_multiplier_range[b'\x02'], 0)
+        adjustment_iid = tlv.read_variable_uint_le(
+            curve_configuration[
+                TransitionCurveConfigurationTypes.ADJUSTMENT_CHARACTERISTIC_IID
+            ]
+        )
+        adjustment_multiplier_range = tlv.decode(
+            curve_configuration[
+                TransitionCurveConfigurationTypes.ADJUSTMENT_MULTIPLIER_RANGE
+            ]
+        )
+        min_adjustment_multiplier = tlv.read_uint32_le(
+            adjustment_multiplier_range[b"\x01"], 0
+        )
+        max_adjustment_multiplier = tlv.read_uint32_le(
+            adjustment_multiplier_range[b"\x02"], 0
+        )
         self.active_transition = {
             "iid": iid,
             "transition_start_millis": start_time_millis,
             "time_millis_offset": time_millis_offset,
             "transition_id": str(uuid.UUID(bytes=transition_id)),
             "transition_start_buffer": to_base64_str(start_time),
-
             "id3": to_base64_str(id3) if id3 else None,
             "brightness_characteristic_iid": adjustment_iid,
             "brightness_adjustment_range": {
@@ -441,7 +551,7 @@ class Light(HomeAccessory):
             "notify_interval_threshold": notify_interval_threshold,
         }
 
-        print("transition_curve________________",transition_curve)
+        print("transition_curve________________", transition_curve)
         if self.update_timeout:
             self.update_timeout.cancel()
             self.update_timeout = None
@@ -450,11 +560,15 @@ class Light(HomeAccessory):
             logging.info("Adaptive lighting was enabled.")
 
         self.handle_active_transition_updated()
-        return tlv8.encode([tlv8.Entry(
-            TransitionControlTypes.UPDATE_VALUE_TRANSITION_CONFIGURATION,
-            self.set_atc(0))]
+        return tlv8.encode(
+            [
+                tlv8.Entry(
+                    TransitionControlTypes.UPDATE_VALUE_TRANSITION_CONFIGURATION,
+                    self.set_atc(0),
+                )
+            ]
         )
-    
+
     def handle_active_transition_updated(self):
         """Handle the enabling or updating of adaptive lighting."""
         self.adaptive_lighting_active = True
@@ -468,17 +582,17 @@ class Light(HomeAccessory):
         _LOGGER.info(f"Adaptive lighting disabled for {self.entity_id}.")
         self.active_transition = None
         self.transition_control_value = None  # Corrected variable
-        
+
         # Clear TransitionControl characteristic value
         if self.char_tc:
             self.char_tc.set_value(None)
-        
+
         self.hass.loop.create_task(self._save_state())
-        
+
         if self.char_atc:
             self.char_atc.set_value(0)
             self.char_atc.notify()
-        
+
         # Reset characteristics to current values without changing physical state
         current_state = self.hass.states.get(self.entity_id)
         if current_state:
@@ -506,22 +620,40 @@ class Light(HomeAccessory):
         self.handle_active_transition_updated()
 
     def get_current_adaptive_lighting_transition_point(self):
-        
         if not self.active_transition:
-            raise ValueError("Cannot calculate the current transition point if no transition is active!")
-        adjusted_now = int(time.time()*1000 - self.active_transition["time_millis_offset"])
+            raise ValueError(
+                "Cannot calculate the current transition point if no transition is active!"
+            )
+        adjusted_now = int(
+            time.time() * 1000 - self.active_transition["time_millis_offset"]
+        )
         offset = adjusted_now - self.active_transition["transition_start_millis"]
-        i = self.last_transition_point_info["curve_index"] if self.last_transition_point_info else 0
-        lower_bound_time_offset = self.last_transition_point_info["lower_bound_time_offset"] if self.last_transition_point_info else 0
+        i = (
+            self.last_transition_point_info["curve_index"]
+            if self.last_transition_point_info
+            else 0
+        )
+        lower_bound_time_offset = (
+            self.last_transition_point_info["lower_bound_time_offset"]
+            if self.last_transition_point_info
+            else 0
+        )
         lower_bound = None
         upper_bound = None
         for i in range(i, len(self.active_transition["transition_curve"]) - 1):
             lower_bound0 = self.active_transition["transition_curve"][i]
             upper_bound0 = self.active_transition["transition_curve"][i + 1]
-            lower_bound_duration = lower_bound0["duration"] if lower_bound0["duration"] else 0
+            lower_bound_duration = (
+                lower_bound0["duration"] if lower_bound0["duration"] else 0
+            )
             lower_bound_time_offset += lower_bound0["transition_time"]
             if offset >= lower_bound_time_offset:
-                if offset <= lower_bound_time_offset + lower_bound_duration + upper_bound0["transition_time"]:
+                if (
+                    offset
+                    <= lower_bound_time_offset
+                    + lower_bound_duration
+                    + upper_bound0["transition_time"]
+                ):
                     lower_bound = lower_bound0
                     upper_bound = upper_bound0
                     break
@@ -534,25 +666,31 @@ class Light(HomeAccessory):
             return None
         self.last_transition_point_info = {
             "curve_index": i,
-            "lower_bound_time_offset": lower_bound_time_offset - lower_bound["transition_time"]
+            "lower_bound_time_offset": lower_bound_time_offset
+            - lower_bound["transition_time"],
         }
         print("last_transition ", self.last_transition_point_info)
-        print("low_bound", {
-            "lower_bound_time_offset": lower_bound_time_offset,
-            "transition_offset": offset - lower_bound_time_offset,
-            "lower_bound": lower_bound,
-            "upper_bound": upper_bound
-        })
+        print(
+            "low_bound",
+            {
+                "lower_bound_time_offset": lower_bound_time_offset,
+                "transition_offset": offset - lower_bound_time_offset,
+                "lower_bound": lower_bound,
+                "upper_bound": upper_bound,
+            },
+        )
         return {
             "lower_bound_time_offset": lower_bound_time_offset,
             "transition_offset": offset - lower_bound_time_offset,
             "lower_bound": lower_bound,
-            "upper_bound": upper_bound
+            "upper_bound": upper_bound,
         }
 
     def schedule_next_update(self, dry_run=False):
         if not self.active_transition:
-            raise ValueError("Tried scheduling transition when no transition was active!")
+            raise ValueError(
+                "Tried scheduling transition when no transition was active!"
+            )
             return
 
         if not dry_run:
@@ -567,25 +705,57 @@ class Light(HomeAccessory):
             _LOGGER.info("Reached end of transition curve! Restarting...")
             # Reset the start time to now to restart the transition
             current_time = int(time.time() * 1000)
-            self.active_transition['transition_start_millis'] = current_time - self.active_transition['time_millis_offset']
+            self.active_transition["transition_start_millis"] = (
+                current_time - self.active_transition["time_millis_offset"]
+            )
             self.last_transition_point_info = None
             # Immediately schedule the next update to restart the transition
             self.schedule_next_update()
             return
 
-        lower_bound = transition_point['lower_bound']
-        upper_bound = transition_point['upper_bound']
+        lower_bound = transition_point["lower_bound"]
+        upper_bound = transition_point["upper_bound"]
 
-        if lower_bound['duration'] and transition_point['transition_offset'] <= lower_bound['duration']:
-            interpolated_temperature = lower_bound['temperature']
-            interpolated_adjustment_factor = lower_bound['brightness_adjustment_factor']
+        if (
+            lower_bound["duration"]
+            and transition_point["transition_offset"] <= lower_bound["duration"]
+        ):
+            interpolated_temperature = lower_bound["temperature"]
+            interpolated_adjustment_factor = lower_bound["brightness_adjustment_factor"]
         else:
-            time_percentage = (transition_point['transition_offset'] - (lower_bound['duration'] if lower_bound['duration'] else 0)) / upper_bound['transition_time']
-            interpolated_temperature = lower_bound['temperature'] + (upper_bound['temperature'] - lower_bound['temperature']) * time_percentage
-            interpolated_adjustment_factor = lower_bound['brightness_adjustment_factor'] + (upper_bound['brightness_adjustment_factor'] - lower_bound['brightness_adjustment_factor']) * time_percentage
+            time_percentage = (
+                transition_point["transition_offset"]
+                - (lower_bound["duration"] if lower_bound["duration"] else 0)
+            ) / upper_bound["transition_time"]
+            interpolated_temperature = (
+                lower_bound["temperature"]
+                + (upper_bound["temperature"] - lower_bound["temperature"])
+                * time_percentage
+            )
+            interpolated_adjustment_factor = (
+                lower_bound["brightness_adjustment_factor"]
+                + (
+                    upper_bound["brightness_adjustment_factor"]
+                    - lower_bound["brightness_adjustment_factor"]
+                )
+                * time_percentage
+            )
 
-        adjustment_multiplier = max(self.active_transition['brightness_adjustment_range']['min_brightness_value'], min(self.active_transition['brightness_adjustment_range']['max_brightness_value'], self.char_br.get_value()))
-        temperature = round(interpolated_temperature + interpolated_adjustment_factor * adjustment_multiplier)
+        adjustment_multiplier = max(
+            self.active_transition["brightness_adjustment_range"][
+                "min_brightness_value"
+            ],
+            min(
+                self.active_transition["brightness_adjustment_range"][
+                    "max_brightness_value"
+                ],
+                self.char_br.get_value(),
+            ),
+        )
+        temperature = round(
+            interpolated_temperature
+            + interpolated_adjustment_factor * adjustment_multiplier
+        )
 
         min_temp = 140
         max_temp = 500
@@ -597,18 +767,20 @@ class Light(HomeAccessory):
 
         # Sending event notifications
         now = int(round(datetime.datetime.now().timestamp() * 1000))
-        if not dry_run and now >= self.active_transition['notify_interval_threshold']:
+        if not dry_run and now >= self.active_transition["notify_interval_threshold"]:
             self.last_event_notification_sent = now
         if not dry_run:
-            self.update_timeout = asyncio.get_event_loop().call_later(self.active_transition['update_interval'] / 1000, self.schedule_next_update)
-
+            self.update_timeout = asyncio.get_event_loop().call_later(
+                self.active_transition["update_interval"] / 1000,
+                self.schedule_next_update,
+            )
 
     def handle_characteristic_manual_written(brightness):
         pass
 
-    def handle_adjustment_factor_changed_listner(self, event:Event):
+    def handle_adjustment_factor_changed_listner(self, event: Event):
         async_track_state_change_event(self.schedule_next_update(True))
-        
+
     def _set_chars(self, char_values: dict[str, Any]) -> None:
         _LOGGER.debug("Light _set_chars: %s", char_values)
         if CHAR_COLOR_TEMPERATURE in self._pending_events and (
@@ -718,7 +890,7 @@ class Light(HomeAccessory):
             and isinstance(brightness, (int, float))
         ):
             brightness = round(brightness / 255 * 100, 0)
-            
+
             if brightness == 0 and state == STATE_ON:
                 brightness = 1
             self.char_brightness.set_value(brightness)
@@ -758,4 +930,3 @@ class Light(HomeAccessory):
                 self.char_color_temp.set_value(round((color_temp), 0))
                 if color_mode_changed:
                     self.char_color_temp.notify()
-        

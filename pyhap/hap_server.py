@@ -6,7 +6,7 @@ The HAPServer is the point of contact to and from the world.
 import asyncio
 import logging
 import time
-from typing import TYPE_CHECKING, Dict, Optional, Tuple
+from typing import TYPE_CHECKING
 
 from .hap_protocol import HAPServerProtocol
 from .util import callback
@@ -34,15 +34,15 @@ class HAPServer:
     """
 
     def __init__(
-        self, addr_port: Tuple[str, int], accessory_handler: "AccessoryDriver"
+        self, addr_port: tuple[str, int], accessory_handler: "AccessoryDriver"
     ) -> None:
         """Create a HAP Server."""
         self._addr_port = addr_port
-        self.connections: Dict[Tuple[str, int], HAPServerProtocol] = {}
+        self.connections: dict[tuple[str, int], HAPServerProtocol] = {}
         self.accessory_handler = accessory_handler
-        self.server: Optional[asyncio.Server] = None
-        self._connection_cleanup: Optional[asyncio.TimerHandle] = None
-        self.loop: Optional[asyncio.AbstractEventLoop] = None
+        self.server: asyncio.Server | None = None
+        self._connection_cleanup: asyncio.TimerHandle | None = None
+        self.loop: asyncio.AbstractEventLoop | None = None
 
     async def async_start(self, loop: asyncio.AbstractEventLoop) -> None:
         """Start the http-hap server."""
@@ -77,7 +77,7 @@ class HAPServer:
         self.connections.clear()
 
     def push_event(
-        self, data: bytes, client_addr: Tuple[str, int], immediate: bool = False
+        self, data: bytes, client_addr: tuple[str, int], immediate: bool = False
     ) -> bool:
         """Queue an event to the current connection with the provided data.
 

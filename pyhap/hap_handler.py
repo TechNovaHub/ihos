@@ -5,7 +5,7 @@ The HAPServerHandler manages the state of the connection and handles incoming re
 import asyncio
 from http import HTTPStatus
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any
 from urllib.parse import ParseResult, parse_qs, urlparse
 import uuid
 
@@ -51,7 +51,7 @@ class HAPResponse:
         self.headers = []
         self.body = b""
         self.shared_key = None
-        self.task: Optional[asyncio.Future] = None
+        self.task: asyncio.Future | None = None
         self.pairing_changed = False
 
     def __repr__(self):
@@ -143,24 +143,23 @@ class HAPServerHandler:
     PVERIFY_2_NONCE = pad_tls_nonce(b"PV-Msg03")
 
     def __init__(self, accessory_handler, client_address):
-        """
-        @param accessory_handler: An object that controls an accessory's state.
+        """@param accessory_handler: An object that controls an accessory's state.
         @type accessory_handler: AccessoryDriver
         """
         self.accessory_handler: AccessoryDriver = accessory_handler
         self.state: State = self.accessory_handler.state
-        self.enc_context: Optional[Dict[str, Any]] = None
+        self.enc_context: dict[str, Any] | None = None
         self.client_address = client_address
         self.is_encrypted = False
-        self.client_uuid: Optional[uuid.UUID] = None
+        self.client_uuid: uuid.UUID | None = None
 
-        self.path: Optional[str] = None
-        self.command: Optional[str] = None
-        self.headers: Optional[Dict[str, str]] = None
-        self.request_body: Optional[bytes] = None
-        self.parsed_url: Optional[ParseResult] = None
+        self.path: str | None = None
+        self.command: str | None = None
+        self.headers: dict[str, str] | None = None
+        self.request_body: bytes | None = None
+        self.parsed_url: ParseResult | None = None
 
-        self.response: Optional[HAPResponse] = None
+        self.response: HAPResponse | None = None
 
     def _set_encryption_ctx(
         self,
@@ -216,7 +215,7 @@ class HAPServerHandler:
         self.response.body = bytesdata
 
     def dispatch(
-        self, request: h11.Request, body: Optional[bytes] = None
+        self, request: h11.Request, body: bytes | None = None
     ) -> HAPResponse:
         """Dispatch the request to the appropriate handler method."""
         self.path = request.target.decode()
@@ -315,7 +314,7 @@ class HAPServerHandler:
         )
         self._send_tlv_pairing_response(data)
 
-    def _pairing_two(self, tlv_objects: Dict[bytes, bytes]) -> None:
+    def _pairing_two(self, tlv_objects: dict[bytes, bytes]) -> None:
         """Obtain the challenge from the client (A) and client's proof that it
         knows the password (M). Verify M and generate the server's proof based on
         A (H_AMK). Send the H_AMK to the client.
@@ -343,7 +342,7 @@ class HAPServerHandler:
         )
         self._send_tlv_pairing_response(data)
 
-    def _pairing_three(self, tlv_objects: Dict[bytes, bytes]) -> None:
+    def _pairing_three(self, tlv_objects: dict[bytes, bytes]) -> None:
         """Expand the SRP session key to obtain a new key. Use it to verify and decrypt
             the recieved data. Continue to step four.
 
@@ -498,7 +497,7 @@ class HAPServerHandler:
                 f"Unknown pairing sequence of {sequence} during pair verify"
             )
 
-    def _pair_verify_one(self, tlv_objects: Dict[bytes, bytes]) -> None:
+    def _pair_verify_one(self, tlv_objects: dict[bytes, bytes]) -> None:
         """Generate new session key pair and send a proof to the client.
 
         @param tlv_objects: The TLV data received from the client.
@@ -549,7 +548,7 @@ class HAPServerHandler:
         )
         self._send_tlv_pairing_response(data)
 
-    def _pair_verify_two(self, tlv_objects: Dict[bytes, bytes]) -> None:
+    def _pair_verify_two(self, tlv_objects: dict[bytes, bytes]) -> None:
         """Verify the client proof and upgrade to encrypted transport.
 
         @param tlv_objects: The TLV data received from the client.
@@ -740,7 +739,7 @@ class HAPServerHandler:
         data = tlv.encode(HAP_TLV_TAGS.SEQUENCE_NUM, HAP_TLV_STATES.M2)
         self._send_tlv_pairing_response(data)
 
-    def _handle_remove_pairing(self, tlv_objects: Dict[bytes, bytes]) -> None:
+    def _handle_remove_pairing(self, tlv_objects: dict[bytes, bytes]) -> None:
         """Remove pairing with the client."""
         client_username_bytes: bytes = tlv_objects[HAP_TLV_TAGS.USERNAME]
         client_username_str = client_username_bytes.decode("utf-8")

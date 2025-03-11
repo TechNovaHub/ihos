@@ -1,7 +1,8 @@
 """Module for the Accessory classes."""
+from collections.abc import Callable, Iterable
 import itertools
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 from uuid import UUID
 
 from . import SUPPORT_QR_CODE, util
@@ -44,9 +45,9 @@ class Accessory:
     def __init__(
         self,
         driver: "AccessoryDriver",
-        display_name: Optional[str],
-        aid: Optional[int] = None,
-        iid_manager: Optional[IIDManager] = None,
+        display_name: str | None,
+        aid: int | None = None,
+        iid_manager: IIDManager | None = None,
     ) -> None:
         """Initialise with the given properties.
 
@@ -59,12 +60,12 @@ class Accessory:
             will assign the standalone AID to this `Accessory`.
         :type aid: int
         """
-        self.aid: Optional[int] = aid
-        self.display_name: Optional[str] = display_name
+        self.aid: int | None = aid
+        self.display_name: str | None = display_name
         self.driver = driver
-        self.services: List[Service] = []
+        self.services: list[Service] = []
         self.iid_manager = iid_manager or IIDManager()
-        self.setter_callback: Optional[Callable[[Any], None]] = None
+        self.setter_callback: Callable[[Any], None] | None = None
 
         self.add_info_service()
         if aid == STANDALONE_AID:
@@ -131,8 +132,8 @@ class Accessory:
     def add_preload_service(
         self,
         service: Service,
-        chars: Optional[Iterable["Characteristic"]] = None,
-        unique_id: Optional[str] = None,
+        chars: Iterable["Characteristic"] | None = None,
+        unique_id: str | None = None,
     ) -> Service:
         """Create a service with the given name and add it to this acc."""
         service = self.driver.loader.get_service(service)
@@ -170,7 +171,7 @@ class Accessory:
                 c.broker = self
                 self.iid_manager.assign(c)
 
-    def get_service(self, name: str) -> Optional[Service]:
+    def get_service(self, name: str) -> Service | None:
         """Return a Service with the given name.
 
         A single Service is returned even if more than one Service with the same name
@@ -222,7 +223,7 @@ class Accessory:
 
         return self.iid_manager.get_obj(iid)
 
-    def to_HAP(self, include_value: bool = True) -> Dict[str, Any]:
+    def to_HAP(self, include_value: bool = True) -> dict[str, Any]:
         """A HAP representation of this Accessory.
 
         :return: A HAP representation of this accessory. For example:
@@ -347,8 +348,8 @@ class Bridge(Accessory):
     def __init__(
         self,
         driver: "AccessoryDriver",
-        display_name: Optional[str],
-        iid_manager: Optional[IIDManager] = None,
+        display_name: str | None,
+        iid_manager: IIDManager | None = None,
     ) -> None:
         super().__init__(
             driver, display_name, aid=STANDALONE_AID, iid_manager=iid_manager
@@ -388,7 +389,7 @@ class Bridge(Accessory):
 
         self.accessories[acc.aid] = acc
 
-    def to_HAP(self, include_value: bool = True) -> List[Dict[str, Any]]:
+    def to_HAP(self, include_value: bool = True) -> list[dict[str, Any]]:
         """Returns a HAP representation of itself and all contained accessories.
 
         .. seealso:: Accessory.to_HAP

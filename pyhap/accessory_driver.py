@@ -27,7 +27,7 @@ import sys
 import tempfile
 import threading
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from zeroconf import ServiceInfo
 from zeroconf.asyncio import AsyncZeroconf
@@ -189,8 +189,7 @@ class AccessoryMDNSServiceInfo(ServiceInfo):
 
 
 class AccessoryDriver:
-    """
-    An AccessoryDriver mediates between incoming requests from the HAPServer and
+    """An AccessoryDriver mediates between incoming requests from the HAPServer and
     the Accessory.
 
     The driver starts and stops the HAPServer, the mDNS advertisements and responds
@@ -214,8 +213,7 @@ class AccessoryDriver:
         async_zeroconf_instance=None,
         zeroconf_server=None
     ):
-        """
-        Initialize a new AccessoryDriver object.
+        """Initialize a new AccessoryDriver object.
 
         :param pincode: The pincode that HAP clients must prove they know in order
             to pair with this `Accessory`. Defaults to None, in which case a random
@@ -283,7 +281,7 @@ class AccessoryDriver:
 
         self.loop = loop
 
-        self.accessory: Optional[Accessory] = None
+        self.accessory: Accessory | None = None
         self.advertiser = async_zeroconf_instance
         self.zeroconf_server = zeroconf_server
         self.interface_choice = interface_choice
@@ -668,7 +666,7 @@ class AccessoryDriver:
 
         Must run in executor.
         """
-        with open(self.persist_file, "r", encoding="utf8") as file_handle:
+        with open(self.persist_file, encoding="utf8") as file_handle:
             self.encoder.load_into(file_handle, self.state)
 
     @callback
@@ -873,17 +871,17 @@ class AccessoryDriver:
         """
         # TODO: Add support for chars that do no support notifications.
 
-        queries: List[Dict[str, Any]] = chars_query[HAP_REPR_CHARS]
+        queries: list[dict[str, Any]] = chars_query[HAP_REPR_CHARS]
 
         self._notify(queries, client_addr)
 
-        updates_by_accessories_services: Dict[
-            Accessory, Dict[Service, Dict[Characteristic, Any]]
+        updates_by_accessories_services: dict[
+            Accessory, dict[Service, dict[Characteristic, Any]]
         ] = defaultdict(lambda: defaultdict(dict))
-        results: Dict[int, Dict[int, Dict[str, Any]]] = defaultdict(
+        results: dict[int, dict[int, dict[str, Any]]] = defaultdict(
             lambda: defaultdict(dict)
         )
-        char_to_iid: Dict[Characteristic, int] = {}
+        char_to_iid: dict[Characteristic, int] = {}
 
         expired = False
         if HAP_REPR_PID in chars_query:
@@ -1008,7 +1006,7 @@ class AccessoryDriver:
             raise
 
     def _notify(
-        self, queries: List[Dict[str, Any]], client_addr: Tuple[str, int]
+        self, queries: list[dict[str, Any]], client_addr: tuple[str, int]
     ) -> None:
         """Notify the driver that the client has subscribed or unsubscribed."""
         for query in queries:

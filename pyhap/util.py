@@ -1,9 +1,9 @@
 import asyncio
 import base64
+from collections.abc import Awaitable
 import functools
 import random
 import socket
-from typing import Awaitable, Set
 from uuid import UUID
 
 import async_timeout
@@ -13,7 +13,7 @@ from .const import BASE_UUID
 
 ALPHANUM = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 HEX_DIGITS = "0123456789ABCDEF"
-_BACKGROUND_TASKS: Set[asyncio.Task] = set()
+_BACKGROUND_TASKS: set[asyncio.Task] = set()
 
 
 rand = random.SystemRandom()
@@ -40,8 +40,7 @@ def iscoro(func):
 
 
 def get_local_address() -> str:
-    """
-    Grabs the local IP address using a socket.
+    """Grabs the local IP address using a socket.
 
     :return: Local IP Address in IPv4 format.
     :rtype: str
@@ -57,8 +56,7 @@ def get_local_address() -> str:
 
 
 def long_to_bytes(n):
-    """
-    Convert a ``long int`` to ``bytes``
+    """Convert a ``long int`` to ``bytes``
 
     :param n: Long Integer
     :type n: int
@@ -79,8 +77,7 @@ def long_to_bytes(n):
 
 
 def generate_mac():
-    """
-    Generates a fake mac address used in broadcast.
+    """Generates a fake mac address used in broadcast.
 
     :return: MAC address in format XX:XX:XX:XX:XX:XX
     :rtype: str
@@ -91,8 +88,7 @@ def generate_mac():
 
 
 def generate_setup_id():
-    """
-    Generates a random Setup ID for an ``Accessory`` or ``Bridge``.
+    """Generates a random Setup ID for an ``Accessory`` or ``Bridge``.
 
     Used in QR codes and the setup hash.
 
@@ -103,8 +99,7 @@ def generate_setup_id():
 
 
 def generate_pincode():
-    """
-    Generates a random pincode.
+    """Generates a random pincode.
 
     :return: pincode in format ``xxx-xx-xxx``
     :rtype: bytearray
@@ -141,7 +136,7 @@ async def event_wait(event, timeout):
     try:
         async with async_timeout.timeout(timeout):
             await event.wait()
-    except asyncio.TimeoutError:
+    except TimeoutError:
         pass
     return event.is_set()
 

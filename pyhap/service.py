@@ -1,6 +1,7 @@
 """This module implements the HAP Service."""
 
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from pyhap.const import (
@@ -27,31 +28,31 @@ class Service:
     """
 
     __slots__ = (
+        "_uuid_str",
         "broker",
         "characteristics",
         "display_name",
-        "type_id",
-        "linked_services",
         "is_primary_service",
+        "linked_services",
         "setter_callback",
+        "type_id",
         "unique_id",
-        "_uuid_str",
     )
 
     def __init__(
         self,
         type_id: UUID,
-        display_name: Optional[str] = None,
-        unique_id: Optional[str] = None,
+        display_name: str | None = None,
+        unique_id: str | None = None,
     ) -> None:
         """Initialize a new Service object."""
-        self.broker: Optional["Accessory"] = None
-        self.characteristics: List[Characteristic] = []
-        self.linked_services: List[Service] = []
+        self.broker: Accessory | None = None
+        self.characteristics: list[Characteristic] = []
+        self.linked_services: list[Service] = []
         self.display_name = display_name
         self.type_id = type_id
         self.is_primary_service = None
-        self.setter_callback: Optional[Callable[[Any], None]] = None
+        self.setter_callback: Callable[[Any], None] | None = None
         self.unique_id = unique_id
         self._uuid_str = uuid_to_hap_type(type_id)
 
@@ -117,7 +118,7 @@ class Service:
         return char
 
     # pylint: disable=invalid-name
-    def to_HAP(self, include_value: bool = True) -> Dict[str, Any]:
+    def to_HAP(self, include_value: bool = True) -> dict[str, Any]:
         """Create a HAP representation of this Service.
 
         :return: A HAP representation.
@@ -133,7 +134,7 @@ class Service:
             hap[HAP_REPR_PRIMARY] = self.is_primary_service
 
         if self.linked_services:
-            linked: List[int] = []
+            linked: list[int] = []
             for linked_service in self.linked_services:
                 linked.append(linked_service.broker.iid_manager.get_iid(linked_service))
             hap[HAP_REPR_LINKED] = linked
@@ -142,7 +143,7 @@ class Service:
 
     @classmethod
     def from_dict(
-        cls, name: str, json_dict: Dict[str, Any], loader: "Loader"
+        cls, name: str, json_dict: dict[str, Any], loader: "Loader"
     ) -> "Service":
         """Initialize a service object from a dict.
 
