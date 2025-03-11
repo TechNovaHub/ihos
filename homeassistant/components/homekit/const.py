@@ -107,11 +107,11 @@ SERVICE_HOMEKIT_UNPAIR = "unpair"
 
 # #### String Constants ####
 BRIDGE_MODEL = "Bridge"
-BRIDGE_NAME = "Home Assistant Bridge"
-SHORT_BRIDGE_NAME = "HASS Bridge"
-SHORT_ACCESSORY_NAME = "HASS Accessory"
-BRIDGE_SERIAL_NUMBER = "homekit.bridge"
-MANUFACTURER = "Home Assistant"
+BRIDGE_NAME = "iHOS Bridge"
+SHORT_BRIDGE_NAME = "iHOS Bridge"
+SHORT_ACCESSORY_NAME = "iHOS Accessory"
+BRIDGE_SERIAL_NUMBER = "iHOS.bridge"
+MANUFACTURER = "Upeya Electronics LLP"
 
 # #### Switch Types ####
 TYPE_FAUCET = "faucet"

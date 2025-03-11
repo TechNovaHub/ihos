@@ -12,6 +12,7 @@ def remap_value(
     reverse: bool = False,
 ) -> float:
     """Remap a value from its current range, to a new range."""
+    value = int(value)
     if reverse:
         value = from_max - value + from_min
     return ((value - from_min) / (from_max - from_min)) * (to_max - to_min) + to_min

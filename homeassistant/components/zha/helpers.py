@@ -1205,11 +1205,11 @@ CONF_ZHA_OPTIONS_SCHEMA = vol.Schema(
         vol.Required(CONF_ENABLE_IDENTIFY_ON_JOIN, default=True): cv.boolean,
         vol.Optional(
             CONF_CONSIDER_UNAVAILABLE_MAINS,
-            default=CONF_DEFAULT_CONSIDER_UNAVAILABLE_MAINS,
+            default=7776000,
         ): cv.positive_int,
         vol.Optional(
             CONF_CONSIDER_UNAVAILABLE_BATTERY,
-            default=CONF_DEFAULT_CONSIDER_UNAVAILABLE_BATTERY,
+            default=7776000,
         ): cv.positive_int,
         vol.Required(CONF_ENABLE_MAINS_STARTUP_POLLING, default=True): cv.boolean,
     },
