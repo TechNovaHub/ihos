@@ -10,6 +10,7 @@ demo <https://demo.home-assistant.io>`__, `installation instructions <https://ho
 
 |screenshot-states|
 
+
 Featured integrations
 ---------------------
 
